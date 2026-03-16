@@ -1,34 +1,21 @@
 {
     "name": "psychedcms/psychedcms-search",
-    "description": "Elasticsearch integration for PsychedCMS — indexing, search, autocomplete, and facets",
+    "description": "Search endpoints (search, autocomplete, facets) for PsychedCMS",
     "type": "symfony-bundle",
     "license": "proprietary",
+    "minimum-stability": "stable",
+    "prefer-stable": true,
     "require": {
-        "php": ">=8.2",
-        "psychedcms/psychedcms-core": "@dev",
-        "symfony/messenger": "^7.4",
-        "symfony/console": "^7.4",
-        "psr/log": "^3.0"
-    },
-    "suggest": {
-        "elasticsearch/elasticsearch": "Required to connect to Elasticsearch (^8.0)",
-        "api-platform/core": "Required for CQRS state provider and search endpoints (^4.0)",
-        "doctrine/orm": "Required for entity metadata reading and Doctrine event listener (^3.0)",
-        "gedmo/doctrine-extensions": "Required for translation-aware indexing (^3.0)"
+        "php": ">=8.3",
+        "psychedcms/psychedcms-elasticsearch": "^1.0 || @dev",
+        "api-platform/core": "^4.0"
     },
     "autoload": {
         "psr-4": {
             "PsychedCms\\Search\\": "src/"
         }
     },
-    "autoload-dev": {
-        "psr-4": {
-            "PsychedCms\\Search\\Tests\\": "tests/"
-        }
-    },
-    "extra": {
-        "symfony": {
-            "allow-contrib": false
-        }
+    "config": {
+        "sort-packages": true
     }
 }

@@ -6,16 +6,8 @@ services:
     PsychedCms\Search\:
         resource: '../src/'
         exclude:
-            - '../src/Attribute/'
             - '../src/Exception/'
-            - '../src/Message/'
             - '../src/PsychedCmsSearchBundle.php'
-
-    PsychedCms\Search\Client\ElasticsearchClientInterface:
-        alias: PsychedCms\Search\Client\ElasticsearchClient
-
-    PsychedCms\Search\Indexing\ContentIndexerInterface:
-        alias: PsychedCms\Search\Indexing\ContentIndexer
 
     PsychedCms\Search\Search\SearchServiceInterface:
         alias: PsychedCms\Search\Search\SearchService
@@ -25,19 +17,6 @@ services:
 
     PsychedCms\Search\Search\FacetServiceInterface:
         alias: PsychedCms\Search\Search\FacetService
-
-    PsychedCms\Search\Client\ElasticsearchClientFactory:
-        arguments:
-            $elasticsearchUrl: '%env(default::ELASTICSEARCH_URL)%'
-
-    PsychedCms\Search\Index\IndexNameResolver:
-        arguments:
-            $indexPrefix: '%env(default::ELASTICSEARCH_INDEX_PREFIX)%'
-
-    PsychedCms\Search\State\SearchCollectionProvider:
-        decorates: 'api_platform.doctrine.orm.state.collection_provider'
-        arguments:
-            $decorated: '.inner'
 
     PsychedCms\Search\State\SearchOperationsResourceMetadataCollectionFactory:
         decorates: 'api_platform.metadata.resource.metadata_collection_factory'

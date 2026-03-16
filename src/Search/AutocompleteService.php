@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace PsychedCms\Search\Search;
 
-use PsychedCms\Search\Client\ElasticsearchClientInterface;
-use PsychedCms\Search\Index\IndexNameResolver;
-use PsychedCms\Search\Indexing\EntityMetadataReader;
+use PsychedCms\Elasticsearch\Client\ElasticsearchClientInterface;
+use PsychedCms\Elasticsearch\Index\IndexNameResolver;
+use PsychedCms\Elasticsearch\Indexing\EntityMetadataReader;
 use Psr\Log\LoggerInterface;
 
 final class AutocompleteService implements AutocompleteServiceInterface

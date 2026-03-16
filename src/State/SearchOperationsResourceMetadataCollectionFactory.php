@@ -9,10 +9,10 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\Operations;
 use ApiPlatform\Metadata\Resource\Factory\ResourceMetadataCollectionFactoryInterface;
 use ApiPlatform\Metadata\Resource\ResourceMetadataCollection;
+use PsychedCms\Elasticsearch\Indexing\EntityMetadataReader;
 use PsychedCms\Search\Action\AutocompleteAction;
 use PsychedCms\Search\Action\FacetsAction;
 use PsychedCms\Search\Action\SearchAction;
-use PsychedCms\Search\Indexing\EntityMetadataReader;
 
 final readonly class SearchOperationsResourceMetadataCollectionFactory implements ResourceMetadataCollectionFactoryInterface
 {
