@@ -54,6 +54,7 @@ final readonly class SearchAction
                 'fieldName' => $facet->fieldName,
                 'type' => $facet->type,
                 'buckets' => $facet->buckets,
+                'group' => $facet->group,
             ], $facets),
         ]);
     }

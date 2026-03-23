@@ -155,11 +155,12 @@ final class FacetService implements FacetServiceInterface
                 $aggregations[$key]['buckets']
             );
 
-            // Use the target field name (e.g., 'genres' from 'release.genres')
+            // Extract relation name and field name from key (e.g., 'release.genres')
             $parts = explode('.', $key);
-            $fieldName = end($parts);
+            $relation = $parts[0];
+            $fieldName = $parts[1] ?? $parts[0];
 
-            $results[] = new FacetResult($fieldName, 'terms', $buckets);
+            $results[] = new FacetResult($fieldName, 'terms', $buckets, $relation);
         }
 
         return $results;
