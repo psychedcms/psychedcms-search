@@ -24,7 +24,7 @@ final class FacetService implements FacetServiceInterface
         $indexName = $this->nameResolver->resolveForLocale($entityClass, $locale);
         $fields = $this->metadataReader->getIndexedFields($entityClass);
 
-        // Discover facetable fields
+        // Discover direct facetable fields
         $facetableFields = [];
         foreach ($fields as $name => $attribute) {
             if ($attribute->facetable) {
@@ -32,27 +32,33 @@ final class FacetService implements FacetServiceInterface
             }
         }
 
-        if ($facetableFields === []) {
+        // Discover relation facetable fields (useRelationFacets=true)
+        $relationFacetFields = $this->metadataReader->getRelationFacetFields($entityClass);
+
+        if ($facetableFields === [] && $relationFacetFields === []) {
             return [];
         }
 
-        $query = $this->buildQuery($locale, $facetableFields, $size);
+        $query = $this->buildQuery($locale, $facetableFields, $size, $relationFacetFields);
 
         $this->logger?->debug('Executing facet query', [
             'index' => $indexName,
             'locale' => $locale,
             'fields' => array_keys($facetableFields),
+            'relationFields' => array_keys($relationFacetFields),
         ]);
 
         $response = $this->client->search($indexName, $query);
 
-        return $this->parseResponse($response, $facetableFields);
+        return $this->parseResponse($response, $facetableFields, $relationFacetFields);
     }
 
     /**
+     * @param array<string, \PsychedCms\Elasticsearch\Attribute\IndexedField> $facetableFields
+     * @param array<string, array{path: string, attribute: \PsychedCms\Elasticsearch\Attribute\IndexedField, relationType: string}> $relationFacetFields
      * @return array<string, mixed>
      */
-    private function buildQuery(string $locale, array $facetableFields, int $size): array
+    private function buildQuery(string $locale, array $facetableFields, int $size, array $relationFacetFields = []): array
     {
         $aggregations = [];
 
@@ -84,6 +90,16 @@ final class FacetService implements FacetServiceInterface
             }
         }
 
+        // Relation facetable fields
+        foreach ($relationFacetFields as $key => $config) {
+            $aggregations[$key] = [
+                'terms' => [
+                    'field' => $config['path'],
+                    'size' => $size,
+                ],
+            ];
+        }
+
         return [
             'size' => 0,
             'query' => [
@@ -98,9 +114,11 @@ final class FacetService implements FacetServiceInterface
     }
 
     /**
+     * @param array<string, \PsychedCms\Elasticsearch\Attribute\IndexedField> $facetableFields
+     * @param array<string, array{path: string, attribute: \PsychedCms\Elasticsearch\Attribute\IndexedField, relationType: string}> $relationFacetFields
      * @return array<FacetResult>
      */
-    private function parseResponse(array $response, array $facetableFields): array
+    private function parseResponse(array $response, array $facetableFields, array $relationFacetFields = []): array
     {
         $aggregations = $response['aggregations'] ?? [];
         $results = [];
@@ -121,6 +139,27 @@ final class FacetService implements FacetServiceInterface
             $type = $attribute->type === 'date' ? 'date_histogram' : 'terms';
 
             $results[] = new FacetResult($name, $type, $buckets);
+        }
+
+        // Parse relation facets — use the last segment as the display field name
+        foreach ($relationFacetFields as $key => $config) {
+            if (!isset($aggregations[$key]['buckets'])) {
+                continue;
+            }
+
+            $buckets = array_map(
+                fn (array $bucket): array => [
+                    'key' => (string) ($bucket['key_as_string'] ?? $bucket['key']),
+                    'count' => (int) $bucket['doc_count'],
+                ],
+                $aggregations[$key]['buckets']
+            );
+
+            // Use the target field name (e.g., 'genres' from 'release.genres')
+            $parts = explode('.', $key);
+            $fieldName = end($parts);
+
+            $results[] = new FacetResult($fieldName, 'terms', $buckets);
         }
 
         return $results;
