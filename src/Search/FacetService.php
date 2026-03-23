@@ -21,7 +21,7 @@ final class FacetService implements FacetServiceInterface
 
     public function getFacets(string $entityClass, string $locale, int $size = 50): array
     {
-        $indexName = $this->nameResolver->resolve($entityClass);
+        $indexName = $this->nameResolver->resolveForLocale($entityClass, $locale);
         $fields = $this->metadataReader->getIndexedFields($entityClass);
 
         // Discover facetable fields

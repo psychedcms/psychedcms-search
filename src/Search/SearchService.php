@@ -28,7 +28,7 @@ final class SearchService implements SearchServiceInterface
         int $perPage = 20,
         array $filters = [],
     ): SearchResult {
-        $indexName = $this->nameResolver->resolve($entityClass);
+        $indexName = $this->nameResolver->resolveForLocale($entityClass, $locale);
         $fields = $this->metadataReader->getIndexedFields($entityClass);
 
         $esQuery = $this->buildSearchQuery($query, $locale, $fields, $filters);
@@ -70,9 +70,7 @@ final class SearchService implements SearchServiceInterface
                 'multi_match' => [
                     'query' => $query,
                     'fields' => $boostedFields,
-                    'type' => 'best_fields',
-                    'fuzziness' => 'AUTO',
-                    'prefix_length' => 2,
+                    'type' => 'bool_prefix',
                 ],
             ];
         }
@@ -150,7 +148,7 @@ final class SearchService implements SearchServiceInterface
         foreach ($hits as $hit) {
             $source = $hit['_source'] ?? [];
             $items[] = new SearchResultItem(
-                id: $source['_content_type'] ?? $hit['_id'],
+                id: $hit['_id'] ?? '',
                 contentType: $source['_content_type'] ?? '',
                 locale: $source['_locale'] ?? '',
                 score: (float) ($hit['_score'] ?? 0.0),
