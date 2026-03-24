@@ -41,6 +41,22 @@ final class SearchService implements SearchServiceInterface
             'size' => $perPage,
         ];
 
+        // Add geo sort when geo filter is active
+        if (isset($filters['_geo'])) {
+            $geoField = $this->resolveGeoField($entityClass);
+            $searchBody['sort'] = [
+                ['_geo_distance' => [
+                    $geoField => [
+                        'lat' => (float) $filters['_geo']['lat'],
+                        'lon' => (float) $filters['_geo']['lng'],
+                    ],
+                    'order' => 'asc',
+                    'unit' => 'km',
+                    'ignore_unmapped' => true,
+                ]],
+            ];
+        }
+
         $this->logger?->debug('Executing search', [
             'index' => $indexName,
             'query' => $query,
@@ -77,12 +93,38 @@ final class SearchService implements SearchServiceInterface
 
         // Apply additional filters
         foreach ($filters as $field => $values) {
+            // Geo filter is handled separately
+            if ($field === '_geo') {
+                continue;
+            }
             if (!\is_array($values)) {
                 $values = [$values];
             }
+
+            // Relation fields (object type with name sub-field): filter on {field}.name
+            if (isset($fields[$field]) && $fields[$field]->type === 'object') {
+                $filter[] = ['terms' => ["{$field}.name" => $values]];
+                continue;
+            }
+
             // Use .raw sub-field for filtered text fields
             $filterField = $this->isTextField($fields, $field) ? "{$field}.raw" : $field;
             $filter[] = ['terms' => [$filterField => $values]];
+        }
+
+        // Geo distance filter
+        if (isset($filters['_geo'])) {
+            $geoField = $this->resolveGeoFieldFromFields($fields);
+            $filter[] = [
+                'geo_distance' => [
+                    'distance' => ($filters['_geo']['distance'] ?? '25') . 'km',
+                    $geoField => [
+                        'lat' => (float) $filters['_geo']['lat'],
+                        'lon' => (float) $filters['_geo']['lng'],
+                    ],
+                    'ignore_unmapped' => true,
+                ],
+            ];
         }
 
         $boolQuery = ['filter' => $filter];
@@ -137,6 +179,31 @@ final class SearchService implements SearchServiceInterface
         $type = $fields[$fieldName]->type;
 
         return $type === null || $type === 'text';
+    }
+
+    /**
+     * Resolve the geo_point field path for the given entity class.
+     * Venues have geolocation.location, events/festivals have venue.geolocation.location.
+     */
+    private function resolveGeoField(string $entityClass): string
+    {
+        $fields = $this->metadataReader->getIndexedFields($entityClass);
+
+        return $this->resolveGeoFieldFromFields($fields);
+    }
+
+    /**
+     * @param array<string, IndexedField> $fields
+     */
+    private function resolveGeoFieldFromFields(array $fields): string
+    {
+        // Check if entity has a direct geolocation field (Venue)
+        if (isset($fields['geolocation'])) {
+            return 'geolocation.location';
+        }
+
+        // Otherwise assume geo is nested in venue relation (Event, Festival)
+        return 'venue.geolocation.location';
     }
 
     private function parseResponse(array $response, int $page, int $perPage): SearchResult
