@@ -97,13 +97,32 @@ final class SearchService implements SearchServiceInterface
             if ($field === '_geo') {
                 continue;
             }
+
+            // Date range filters
+            if ($field === '_dateRanges') {
+                foreach ($values as $esField => $rangeOps) {
+                    $filter[] = ['range' => [$esField => $rangeOps]];
+                }
+                continue;
+            }
             if (!\is_array($values)) {
                 $values = [$values];
             }
 
-            // Relation fields (object type with name sub-field): filter on {field}.name
+            // Nested relation fields: wrap in nested query
+            if (isset($fields[$field]) && $fields[$field]->type === 'nested') {
+                $filter[] = [
+                    'nested' => [
+                        'path' => $field,
+                        'query' => ['terms' => ["{$field}.slug" => $values]],
+                    ],
+                ];
+                continue;
+            }
+
+            // Object relation fields: filter on {field}.slug
             if (isset($fields[$field]) && $fields[$field]->type === 'object') {
-                $filter[] = ['terms' => ["{$field}.name" => $values]];
+                $filter[] = ['terms' => ["{$field}.slug" => $values]];
                 continue;
             }
 

@@ -75,15 +75,47 @@ final class FacetService implements FacetServiceInterface
                         'min_doc_count' => 1,
                     ],
                 ];
-            } else {
-                // Terms aggregation — use .name sub-field for nested types
-                $fieldPath = \in_array($esType, ['nested', 'object'], true)
-                    ? "{$name}.name"
-                    : $name;
-
+            } elseif ($esType === 'nested') {
+                // Nested aggregation: preserves field association in arrays
+                $aggregations[$name] = [
+                    'nested' => ['path' => $name],
+                    'aggs' => [
+                        'slugs' => [
+                            'terms' => [
+                                'field' => "{$name}.slug",
+                                'size' => $size,
+                            ],
+                            'aggs' => [
+                                'label' => [
+                                    'terms' => [
+                                        'field' => "{$name}.name",
+                                        'size' => 1,
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ];
+            } elseif ($esType === 'object') {
+                // Object aggregation: slug with sub-agg for label (single-value fields)
                 $aggregations[$name] = [
                     'terms' => [
-                        'field' => $fieldPath,
+                        'field' => "{$name}.slug",
+                        'size' => $size,
+                    ],
+                    'aggs' => [
+                        'label' => [
+                            'terms' => [
+                                'field' => "{$name}.name",
+                                'size' => 1,
+                            ],
+                        ],
+                    ],
+                ];
+            } else {
+                $aggregations[$name] = [
+                    'terms' => [
+                        'field' => $name,
                         'size' => $size,
                     ],
                 ];
@@ -124,16 +156,32 @@ final class FacetService implements FacetServiceInterface
         $results = [];
 
         foreach ($facetableFields as $name => $attribute) {
-            if (!isset($aggregations[$name]['buckets'])) {
+            $esType = $attribute->type;
+
+            // For nested type, buckets are inside the 'slugs' sub-aggregation
+            $rawBuckets = $esType === 'nested'
+                ? ($aggregations[$name]['slugs']['buckets'] ?? [])
+                : ($aggregations[$name]['buckets'] ?? []);
+
+            if ($rawBuckets === []) {
                 continue;
             }
 
             $buckets = array_map(
-                fn (array $bucket): array => [
-                    'key' => (string) ($bucket['key_as_string'] ?? $bucket['key']),
-                    'count' => (int) $bucket['doc_count'],
-                ],
-                $aggregations[$name]['buckets']
+                function (array $bucket) use ($esType): array {
+                    $result = [
+                        'key' => (string) ($bucket['key_as_string'] ?? $bucket['key']),
+                        'count' => (int) $bucket['doc_count'],
+                    ];
+
+                    // Extract label from sub-aggregation for object/nested fields
+                    if (\in_array($esType, ['nested', 'object'], true) && isset($bucket['label']['buckets'][0]['key'])) {
+                        $result['label'] = (string) $bucket['label']['buckets'][0]['key'];
+                    }
+
+                    return $result;
+                },
+                $rawBuckets
             );
 
             $type = $attribute->type === 'date' ? 'date_histogram' : 'terms';
