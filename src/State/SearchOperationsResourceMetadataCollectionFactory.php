@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace PsychedCms\Search\State;
 
 use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\HttpOperation;
+use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Operations;
 use ApiPlatform\Metadata\Resource\Factory\ResourceMetadataCollectionFactoryInterface;
 use ApiPlatform\Metadata\Resource\ResourceMetadataCollection;
@@ -78,13 +78,14 @@ final readonly class SearchOperationsResourceMetadataCollectionFactory implement
                 continue;
             }
 
-            // HttpOperation (not Get) — Get would tell API Platform's
-            // IriConverter "use this URL as the canonical item route", and
-            // since /search has no {id} placeholder it would emit
-            // @id = "/api/<resource>/search" for every entity. HttpOperation
-            // keeps the HTTP route but stays out of the IRI resolution.
-            $operations[$operationKey] = new HttpOperation(
-                method: 'GET',
+            // GetCollection (not Get) — Get / plain HttpOperation are both
+            // treated as "item GET" by API Platform's IriConverter, which then
+            // emits `@id = /api/<resource>/search` (the literal route) for every
+            // entity since /search carries no {id} placeholder. GetCollection
+            // implements CollectionOperationInterface, so the IriConverter
+            // skips it when looking for the canonical item route — exactly
+            // what we want for these collection-level search endpoints.
+            $operations[$operationKey] = new GetCollection(
                 uriTemplate: $uriTemplate . $config['path'],
                 class: $resourceClass,
                 shortName: $shortName,
